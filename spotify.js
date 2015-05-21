@@ -1,9 +1,11 @@
-// find template and compile it
+
+
 var templateSource = document.getElementById('results-template').innerHTML
     template = Handlebars.compile(templateSource),
     albumImagePlaceholder = $('#albumImagePlaceholder'),
     albumTitlePlaceholder = $('#albumTitlePlaceholder'),
-    playingTrack = null;
+    playingTrack = null, 
+    musicMatchkey = '353dfc8f058bb33ca0e6eb62e168e74c'
 
 var fetchTracks = function (albumId, callback) {
     $.ajax({
@@ -42,16 +44,49 @@ var addTrack = function(track){
     var title = track.name
     albumTitlePlaceholder.append(title)
     albumImagePlaceholder.append('<img src="' + url + '"/>')
+
     playingTrack = new Audio(track.preview_url);
     playingTrack.play();
+
+    rapgeniusClient.searchSong(title, "rap", rapGeniusCallback);
 }
 
-var addAlbums = function(albums){
-    _.each(albums, function(album){
-        var url = album.images[0].url
-        resultsPlaceholder.append('<img src="' + url + '"/>')
-    });
+var rapGeniusCallback = function(err, songs){
+  if(err){
+    console.log("Error: " + err);
+  }else{
+    if(songs.length > 0){
+      //We have some songs
+      rapgeniusClient.searchLyricsAndExplanations(songs[0].link, "rap", lyricsSearchCb);
+    }
+  }
 };
+
+var lyricsSearchCb = function(err, lyricsAndExplanations){
+    if(err){
+      console.log("Error: " + err);
+    }else{
+      var lyrics = lyricsAndExplanations.lyrics;
+      var explanations = lyricsAndExplanations.explanations;
+
+      //Now we can embed the explanations within the verses
+      lyrics.addExplanations(explanations);
+      var firstVerses = lyrics.sections[0].verses[0];
+      _.each(lyrics, function(lyric){
+        _.each(sections, function(section){
+            var content = section.content;
+            var explanation = section.explanation;
+            contentPlaceholder.append(content);
+            explanationPlaceholder.append(explanation);
+        })
+
+      })
+      console.log("\nVerses:\n %s \n\n *** This means ***\n%s", firstVerses.content, firstVerses.explanation);
+    }
+};
+
+
+
 
 document.getElementById('search-form').addEventListener('submit', function (e) {
     e.preventDefault();
